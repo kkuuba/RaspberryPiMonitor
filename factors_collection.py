@@ -96,15 +96,15 @@ class FactorsCollection:
         con = self.prepare_connection()
         while True:
             self.temp = re.search(r"\d+\.\d+", con.run_cmd("vcgencmd measure_temp")).group(0)
-            self.save_factors("temp", {str(datetime.now()): self.temp})
+            self.save_factors("temp", {"time": str(datetime.now()), "value": self.temp})
             time.sleep(self.collection_interval)
 
     def system_load_agent(self):
         con = self.prepare_connection()
         while True:
             self._process_ps_aux_data(con.run_cmd("ps -aux | grep -v COMMAND"))
-            self.save_factors("cpu_load", {str(datetime.now()): str(self.cpu_load)})
-            self.save_factors("memory_load", {str(datetime.now()): str(self.mem_load)})
+            self.save_factors("cpu_load", {"time": str(datetime.now()), "value": str(self.cpu_load)})
+            self.save_factors("memory_load", {"time": str(datetime.now()), "value": str(self.mem_load)})
             time.sleep(self.collection_interval)
 
     def _process_ps_aux_data(self, data):
@@ -121,7 +121,7 @@ class FactorsCollection:
         con = self.prepare_connection()
         while True:
             self.core_voltage = re.search(r"\d+\.\d+", con.run_cmd("vcgencmd measure_volts")).group(0)
-            self.save_factors("processor_voltage", {str(datetime.now()): self.core_voltage})
+            self.save_factors("processor_voltage", {"time": str(datetime.now()), "value": self.core_voltage})
             time.sleep(self.collection_interval)
 
     def network_throughput_statistic_agent(self):
@@ -131,8 +131,8 @@ class FactorsCollection:
                 if "wlan0" in line:
                     self.rxkB = re.split(r"\s+", line)[4]
                     self.txkB = re.split(r"\s+", line)[5]
-            self.save_factors("rxkB", {str(datetime.now()): self.rxkB})
-            self.save_factors("txkB", {str(datetime.now()): self.txkB})
+            self.save_factors("rxkB", {"time": str(datetime.now()), "value": self.rxkB})
+            self.save_factors("txkB", {"time": str(datetime.now()), "value": self.txkB})
             time.sleep(self.collection_interval)
 
     def network_ip_statistic_agent(self):
@@ -143,9 +143,9 @@ class FactorsCollection:
             self.gateway_ip = ip_matched.group("GATEWAY")
             self.device_ip = ip_matched.group("IP")
             self.device_metric = ip_matched.group("METRIC")
-            self.save_factors("gateway_ip", {str(datetime.now()): self.gateway_ip})
-            self.save_factors("device_ip", {str(datetime.now()): self.device_ip})
-            self.save_factors("device_metric", {str(datetime.now()): self.device_metric})
+            self.save_factors("gateway_ip", {"time": str(datetime.now()), "value": self.gateway_ip})
+            self.save_factors("device_ip", {"time": str(datetime.now()), "value": self.device_ip})
+            self.save_factors("device_metric", {"time": str(datetime.now()), "value": self.device_metric})
             time.sleep(self.collection_interval)
 
     def disk_usage_agent(self):
@@ -157,10 +157,10 @@ class FactorsCollection:
             self.used_space = disk_space_matched.group("USED_SPACE_")
             self.available_space = disk_space_matched.group("AVL_SPACE")
             self.disk_space_usage = disk_space_matched.group("DISK_USAGE")
-            self.save_factors("all_space", {str(datetime.now()): self.all_space})
-            self.save_factors("used_space", {str(datetime.now()): self.used_space})
-            self.save_factors("available_space", {str(datetime.now()): self.available_space})
-            self.save_factors("disk_space_usage", {str(datetime.now()): self.disk_space_usage})
+            self.save_factors("all_space", {"time": str(datetime.now()), "value": self.all_space})
+            self.save_factors("used_space", {"time": str(datetime.now()), "value": self.used_space})
+            self.save_factors("available_space", {"time": str(datetime.now()), "value": self.available_space})
+            self.save_factors("disk_space_usage", {"time": str(datetime.now()), "value": self.disk_space_usage})
             time.sleep(self.collection_interval)
 
     def processors_parameter_agent(self):
@@ -169,9 +169,9 @@ class FactorsCollection:
             self.freq_arm = re.search(r".*=(?P<FREQ>\d+)", con.run_cmd("vcgencmd measure_clock arm")).group("FREQ")
             self.freq_core = re.search(r".*=(?P<FREQ>\d+)", con.run_cmd("vcgencmd measure_clock core")).group("FREQ")
             self.throttle_hex = re.search(r"0[xX][0-9a-fA-F]+", con.run_cmd("vcgencmd get_throttled")).group(0)
-            self.save_factors("freq_arm", {str(datetime.now()): self.freq_arm})
-            self.save_factors("freq_core", {str(datetime.now()): self.freq_core})
-            self.save_factors("throttle", {str(datetime.now()): self.throttle_hex})
+            self.save_factors("freq_arm", {"time": str(datetime.now()), "value": self.freq_arm})
+            self.save_factors("freq_core", {"time": str(datetime.now()), "value": self.freq_core})
+            self.save_factors("throttle", {"time": str(datetime.now()), "value": self.throttle_hex})
             time.sleep(self.collection_interval)
 
     def power_monitor_agent(self):
@@ -179,10 +179,5 @@ class FactorsCollection:
         while True:
             self.power = 0.5 + 1 / 1000 * float(self.temp) + 1.3 / 1000 * float(self.cpu_load) + 0.5 / 1000 * float(
                 self.mem_load)
-            self.save_factors("power", {str(datetime.now()): str("{:.1f}".format(self.power * 1000))})
+            self.save_factors("power", {"time": str(datetime.now()), "value": str("{:.1f}".format(self.power * 1000))})
             time.sleep(self.collection_interval)
-
-
-obj = FactorsCollection(True, 10, {"host": "", "username": "", "password": ""})
-obj.start_agents()
-time.sleep(600)
