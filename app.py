@@ -1,75 +1,70 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
-import altair as alt
-import json
 import time
+import plotly.express as px
+import plotly.graph_objects as go
+import pandas as pd
+import json
 from factors_collection import FactorsCollection
 import threading
 
-factor_collection_thread = threading.Thread(target=FactorsCollection(True, 10, {}).start_agents,
-                                            name="factor_collection", args=())
+parameter_collector = FactorsCollection(True, 10,
+                                        {})
+
+factor_collection_thread = threading.Thread(target=parameter_collector.start_agents, name="factor_collection", args=())
 factor_collection_thread.start()
 
-st.set_page_config(layout="wide")
 
-with open('data.json') as json_file:
-    data = json.load(json_file)
-    json_file.close()
-
-
-def get_factor_values(factor_name):
+def get_parameter_data_frame(parameter_name, y_label):
+    parameter_collector.file_semaphore.acquire()
+    with open('data.json') as json_file:
+        data = json.load(json_file)
+        json_file.close()
+    parameter_collector.file_semaphore.release()
     values = []
-    for k in data[factor_name]:
+    time_stamps = []
+    for k in data[parameter_name]:
+        time_stamps.append(str(k["time"]))
         values.append(float(k["value"]))
 
-    return values
+    return pd.DataFrame({"Time line": time_stamps, y_label: values})
 
 
-network_data = pd.DataFrame({"UL [Kbit/sec]": get_factor_values("rxkB"), "DL [Kbit/sec]": get_factor_values("txkB")})
-
-power_usage_values = np.array(get_factor_values("power"))
-temperature_values = np.array(get_factor_values("temp"))
-cpu_usage_values = np.array(get_factor_values("cpu_load"))
-ram_usage_values = np.array(get_factor_values("memory_load"))
-
-available_space = get_factor_values("available_space")[-1] / 1000
-used_space = get_factor_values("used_space")[-1] / 1000
-
-source = pd.DataFrame(
-    {"category": ["Available space [MB]", "Used space [MB]"], "value": [available_space, used_space]})
-
-disk_usage = alt.Chart(source).mark_arc(innerRadius=50).encode(
-    theta=alt.Theta(field="value", type="quantitative"),
-    color=alt.Color(field="category", type="nominal"),
-)
-
+st.title("RaspberryPi Monitor")
 start_button = st.empty()
+power_usage = st.empty()
+temperature = st.empty()
+cpu_usage = st.empty()
+ram_usage = st.empty()
+disk_space = st.empty()
+dl_stats = st.empty()
+ul_stats = st.empty()
 
 
-def refresh_data():
-    header = st.container()
-    disk_space_usage, network_stats = st.columns(2)
-    power_usage, temperature, cpu_usage, ram_usage = st.columns(4)
+def refresh_layout():
+    power = px.line(get_parameter_data_frame("power", "Power usage [mW]"), x="Time line", y="Power usage [mW]",
+                    title="Actual power usage")
+    temp = px.line(get_parameter_data_frame("temp", "Temperature [°C]"), x="Time line", y="Temperature [°C]",
+                   title="Actual core temperature")
+    cpu = px.line(get_parameter_data_frame("cpu_load", "CPU load [%]"), x="Time line", y="CPU load [%]",
+                  title="Actual CPU usage")
+    ram = px.line(get_parameter_data_frame("memory_load", "RAM load [%]"), x="Time line", y="RAM load [%]",
+                  title="Actual RAM usage")
+    free_space = get_parameter_data_frame("available_space", "available_space")["available_space"].iloc[-1]
+    used_space = get_parameter_data_frame("used_space", "used_space")["used_space"].iloc[-1]
+    disk = go.Figure(data=[
+        go.Pie(labels=["Used space", "Free space"], values=[used_space, free_space], hole=.3, title="Disk usage")])
+    dl = px.line(get_parameter_data_frame("txkB", "DL [Kbit/sec]"), x="Time line", y="DL [Kbit/sec]",
+                 title="Actual downlink usage")
+    ul = px.line(get_parameter_data_frame("rxkB", "UL [Kbit/sec]"), x="Time line", y="UL [Kbit/sec]",
+                 title="Actual uplink usage")
 
-    power_usage.metric("Power usage", "{:.2f} mW".format(power_usage_values[-1]),
-                       "{:.2f} mW".format(power_usage_values[-1] - power_usage_values.mean()), delta_color="inverse")
-    temperature.metric("Temperature", "{:.2f} °C".format(temperature_values[-1]),
-                       "{:.2f} °C".format(temperature_values[-1] - temperature_values.mean()), delta_color="inverse")
-    cpu_usage.metric("CPU usage", "{:.2f} %".format(cpu_usage_values[-1]),
-                     "{:.2f}%".format(cpu_usage_values[-1] - cpu_usage_values.mean()), delta_color="inverse")
-    ram_usage.metric("RAM usage", "{:.2f} %".format(ram_usage_values[-1]),
-                     "{:.2f}%".format(ram_usage_values[-1] - ram_usage_values.mean()), delta_color="inverse")
-
-    with header:
-        st.title("RaspberryPiMonitor")
-
-    with disk_space_usage:
-        st.write("Disk space usage")
-        st.altair_chart(disk_usage, use_container_width=True)
-    with network_stats:
-        st.write("Network statistics")
-        st.line_chart(network_data, use_container_width=True)
+    power_usage.write(power)
+    temperature.write(temp)
+    cpu_usage.write(cpu)
+    ram_usage.write(ram)
+    disk_space.write(disk)
+    dl_stats.write(dl)
+    ul_stats.write(ul)
 
 
 if start_button.button('Start', key='start'):
@@ -77,5 +72,5 @@ if start_button.button('Start', key='start'):
     if st.button('Stop', key='stop'):
         pass
     while True:
-        refresh_data()
-        time.sleep(0.5)
+        refresh_layout()
+        time.sleep(7)
