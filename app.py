@@ -4,14 +4,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import json
+import os
 from factors_collection import FactorsCollection
 import threading
-
-parameter_collector = FactorsCollection(True, 10,
-                                        {})
-
-factor_collection_thread = threading.Thread(target=parameter_collector.start_agents, name="factor_collection", args=())
-factor_collection_thread.start()
 
 
 def get_parameter_data_frame(parameter_name, y_label):
@@ -30,7 +25,10 @@ def get_parameter_data_frame(parameter_name, y_label):
 
 
 st.title("RaspberryPi Monitor")
-start_button = st.empty()
+device_address = st.empty()
+device_ssh_username = st.empty()
+device_ssh_password = st.empty()
+connect_button = st.empty()
 power_usage = st.empty()
 temperature = st.empty()
 cpu_usage = st.empty()
@@ -53,9 +51,9 @@ def refresh_layout():
     used_space = get_parameter_data_frame("used_space", "used_space")["used_space"].iloc[-1]
     disk = go.Figure(data=[
         go.Pie(labels=["Used space", "Free space"], values=[used_space, free_space], hole=.3, title="Disk usage")])
-    dl = px.line(get_parameter_data_frame("txkB", "DL [Kbit/sec]"), x="Time line", y="DL [Kbit/sec]",
+    dl = px.line(get_parameter_data_frame("rxkB", "DL [Kbit/sec]"), x="Time line", y="DL [Kbit/sec]",
                  title="Actual downlink usage")
-    ul = px.line(get_parameter_data_frame("rxkB", "UL [Kbit/sec]"), x="Time line", y="UL [Kbit/sec]",
+    ul = px.line(get_parameter_data_frame("txkB", "UL [Kbit/sec]"), x="Time line", y="UL [Kbit/sec]",
                  title="Actual uplink usage")
 
     power_usage.write(power)
@@ -67,9 +65,28 @@ def refresh_layout():
     ul_stats.write(ul)
 
 
-if start_button.button('Start', key='start'):
-    start_button.empty()
-    if st.button('Stop', key='stop'):
+address = device_address.text_input("Host", "")
+ssh_username = device_ssh_username.text_input("Username", "")
+ssh_password = device_ssh_password.text_input("Password", "", type="password")
+
+if connect_button.button('Connect', key='start'):
+    file_exist = os.path.isfile("data.json")
+    authorization = {"host": address,
+                     "username": ssh_username,
+                     "password": ssh_password}
+    parameter_collector = FactorsCollection(True, 10, authorization)
+    factor_collection_thread = threading.Thread(target=parameter_collector.start_agents, name="factor_collection",
+                                                args=())
+    factor_collection_thread.start()
+    connect_button.empty()
+    device_address.empty()
+    device_ssh_username.empty()
+    device_ssh_password.empty()
+    if not file_exist:
+        with st.spinner("Waiting for data from remote device ..."):
+            time.sleep(20)
+    if st.button('Disconnect', key='stop'):
+        factor_collection_thread.join()
         pass
     while True:
         refresh_layout()
