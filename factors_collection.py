@@ -7,12 +7,12 @@ from ssh_manager import SshConnections, RunCmdLocal
 
 
 class FactorsCollection:
-    def __init__(self, remote, collection_interval, remote_config=None):
+    def __init__(self, remote, collection_interval, remote_config=None, file_name="data.json"):
         self.sessions = []
         self.threads = []
         self.collection_interval = collection_interval
         self.remote_config = remote_config
-        self.data_file_name = "data.json"
+        self.data_file_name = file_name
         self.remote_collection_mode = remote
         self.temp = None
         self.core_voltage = None

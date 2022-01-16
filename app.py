@@ -7,11 +7,12 @@ import json
 import os
 from factors_collection import FactorsCollection
 import threading
+from hashlib import sha256
 
 
 def get_parameter_data_frame(parameter_name, y_label):
     parameter_collector.file_semaphore.acquire()
-    with open('data.json') as json_file:
+    with open(parameter_collector.data_file_name) as json_file:
         data = json.load(json_file)
         json_file.close()
     parameter_collector.file_semaphore.release()
@@ -70,11 +71,12 @@ ssh_username = device_ssh_username.text_input("Username", "")
 ssh_password = device_ssh_password.text_input("Password", "", type="password")
 
 if connect_button.button('Connect', key='start'):
-    file_exist = os.path.isfile("data.json")
+    data_file_name = "{}.json".format(sha256(address.encode('utf-8')).hexdigest())
+    file_exist = os.path.isfile(data_file_name)
     authorization = {"host": address,
                      "username": ssh_username,
                      "password": ssh_password}
-    parameter_collector = FactorsCollection(True, 10, authorization)
+    parameter_collector = FactorsCollection(True, 10, authorization, file_name=data_file_name)
     factor_collection_thread = threading.Thread(target=parameter_collector.start_agents, name="factor_collection",
                                                 args=())
     factor_collection_thread.start()
